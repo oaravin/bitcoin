@@ -116,6 +116,35 @@ BOOST_AUTO_TEST_CASE(bitdeque_iterator)
     BOOST_CHECK(rit == b.rend());
 }
 
+BOOST_AUTO_TEST_CASE(bitdeque_iterator_random_access)
+{
+    bitdeque<> b{false, true, false, true, false};
+    auto it = b.begin();
+
+    // Arithmetic
+    BOOST_CHECK_EQUAL(*(it + 1), true);
+    BOOST_CHECK_EQUAL(*(1 + it), true);
+    BOOST_CHECK_EQUAL(*(b.end() - 1), false);
+    BOOST_CHECK_EQUAL((b.end() - b.begin()), 5);
+
+    it += 3;
+    BOOST_CHECK_EQUAL(*it, true);
+    it -= 2;
+    BOOST_CHECK_EQUAL(*it, true);
+
+    // Comparisons
+    auto it2 = b.begin() + 2; // it is at begin()+1, make it2 be begin()+2
+    BOOST_CHECK(it < it2);
+    BOOST_CHECK(it2 > it);
+    BOOST_CHECK(it <= it2);
+    BOOST_CHECK(it2 >= it);
+    BOOST_CHECK(it != it2);
+    BOOST_CHECK(it == b.begin() + 1);
+
+    // Offset dereference
+    BOOST_CHECK_EQUAL(it[2], true); // b[1+2] = b[3] = true
+}
+
 BOOST_AUTO_TEST_CASE(bitdeque_erase_insert)
 {
     bitdeque<> b{true, true, true};
@@ -182,6 +211,39 @@ BOOST_AUTO_TEST_CASE(bitdeque_access)
     BOOST_CHECK_EQUAL(b.at(1), false);
     BOOST_CHECK_EQUAL(b.at(2), true);
     BOOST_CHECK_THROW(b.at(3), std::out_of_range);
+}
+
+BOOST_AUTO_TEST_CASE(bitdeque_small_word_boundary)
+{
+    // Test with a small BITS_PER_WORD to trigger word boundary logic
+    bitdeque<64> b;
+    // Fill up more than one word (64 bits)
+    for (int i = 0; i < 70; ++i) {
+        b.push_back(i % 2 == 0);
+    }
+    BOOST_CHECK_EQUAL(b.size(), 70U);
+    for (int i = 0; i < 70; ++i) {
+        BOOST_CHECK_EQUAL(b[i], i % 2 == 0);
+    }
+
+    // Remove from front to shift pad_begin
+    for (int i = 0; i < 10; ++i) {
+        b.pop_front();
+    }
+    BOOST_CHECK_EQUAL(b.size(), 60U);
+    for (int i = 0; i < 60; ++i) {
+        // Original index was i + 10
+        BOOST_CHECK_EQUAL(b[i], (i + 10) % 2 == 0);
+    }
+
+    // Add to front, potentially crossing boundary backwards or filling up pad_begin
+    for (int i = 0; i < 10; ++i) {
+        b.push_front(true);
+    }
+    BOOST_CHECK_EQUAL(b.size(), 70U);
+    for (int i = 0; i < 10; ++i) {
+        BOOST_CHECK_EQUAL(b[i], true);
+    }
 }
 
 BOOST_AUTO_TEST_SUITE_END()
